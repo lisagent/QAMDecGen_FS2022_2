@@ -23,6 +23,13 @@
 #include "qaminit.h"
 #include "qamgen.h"
 
+#define MODE_IDLE		0x00
+#define MODE_START		0x01
+#define MODE_ID			0x02
+#define MODE_LENGHT		0x03
+#define MODE_DATA		0x04
+#define MODE_CHECKSUMME	0x05
+
 
 const int16_t sinLookup100[NR_OF_SAMPLES*2] = {0x0,0x18F,0x30F,0x471,0x5A7,0x6A6,0x763,0x7D8,
 												0x7FF,0x7D8,0x763,0x6A6,0x5A7,0x471,0x30F,0x18F,
@@ -42,10 +49,15 @@ const int16_t sinLookup50[NR_OF_SAMPLES*2] = {0x0,0xC8,0x187,0x238,0x2D3,0x353,0
 												0x0,0xFF38,0xFE79,0xFDC8,0xFD2D,0xFCAD,0xFC4F,0xFC15,
 												0xFC01,0xFC15,0xFC4F,0xFCAD,0xFD2D,0xFDC8,0xFE79,0xFF38,};
 
-#define SENDBUFFER_SIZE 20
+#define SENDBUFFER_SIZE		 20
+#define SENDBUFFER_SIZE_1	 2
+#define SENDBUFFER_SIZE_2	 4
+#define SENDBUFFER_SIZE_3	 48
 uint8_t sendbuffer[SENDBUFFER_SIZE] = {0,1,0,1,0,1,2,1,3,0,1,1,3,2,1,0,0,1,0,1};
 
-
+//Es soll eine StateMachine erstellt werden, mit deren Hilfe die einzelnen States ablaufen. 
+//Sie soll aus folgenden State bestehen: Idle, Start, ID,Lenght,Data,Checksumme
+//
 
 void vQuamGen(void *pvParameters) {
 	while(evDMAState == NULL) {
@@ -83,6 +95,79 @@ void fillBuffer(uint16_t buffer[NR_OF_SAMPLES]) {
 	}
 }
 
+void StateMachine(void *pvParameters){   //muss noch implementiert werden
+	int mode = MODE_IDLE;
+	for(;;){
+		switch(mode)
+			case MODE_IDLE:
+				uint8_t sendbuffer[SENDBUFFER_SIZE_1] = {0,3};
+				if (Button1 = 1 ) {
+					mode = MODE_IDLE;
+						if(pSendbuffer < SENDBUFFER_SIZE_1-1) {
+							pSendbuffer++;
+						} else {
+							pSendbuffer = 0;
+						}								
+				}
+					if (Button1 = 0) {
+					mode = MODE_START;
+						if(pSendbuffer < SENDBUFFER_SIZE_1-1) {
+							pSendbuffer++;
+						} else {
+							pSendbuffer = 0;
+						}						
+				}
+			break;
+			case MODE_START:
+				uint8_t sendbuffer[SENDBUFFER_SIZE_1] = {1,2};
+				if(pSendbuffer < SENDBUFFER_SIZE_1-1) {
+					pSendbuffer++;
+					mode = MODE_START;
+				} else {
+					pSendbuffer = 0;
+					mode = MODE_ID;
+				}		
+			break;			
+			case MODE_ID:
+				uint8_t sendbuffer[SENDBUFFER_SIZE_2] = {Daten, die im ID gesendet werden sollen. Sollen spaeter mal veraenderbar sein, um die Checksumme zu kontrollieren};
+				if(pSendbuffer < SENDBUFFER_SIZE_2-1) {
+					pSendbuffer++;
+					mode = MODE_ID;
+				} else {
+					pSendbuffer = 0;
+					mode = MODE_LENGHT;
+				}
+			break;
+			case MODE_LENGHT
+				uint8_t sendbuffer[SENDBUFFER_SIZE_2] = {0,0,2,3};
+				if(pSendbuffer < SENDBUFFER_SIZE_2-1) {
+					pSendbuffer++;
+					mode = MODE_LENGHT;
+				} else {
+					pSendbuffer = 0;
+					mode = MODE_DATA;
+				}					
+			case MODE_DATA:
+				uint8_t sendbuffer[SENDBUFFER_SIZE_3] = {1,1,0,1, 1,3,1,1, 1,2,0,1, 1,2,3,1, 0,2,0,0, 1,1,0,0, 1,2,3,0, 1,3,1,1, 1,2,3,2, 1,2,1,0, 1,2,1,1, 1,3,0,2};	
+				if(pSendbuffer < SENDBUFFER_SIZE_2-1) {
+					pSendbuffer++;
+					mode = MODE_DATA;
+				} else {
+					pSendbuffer = 0;
+					mode = MODE_CHECKSUMME;
+				}
+			break;
+			case MODE_CHECKSUMME	
+				uint8_t sendbuffer[SENDBUFFER_SIZE_2] = {alle Daten zusammen gezaehlt};
+				if(pSendbuffer < SENDBUFFER_SIZE_2-1) {
+					pSendbuffer++;
+					mode = MODE_CHECKSUMME;
+				} else {
+					pSendbuffer = 0;
+					mode = MODE_IDLE;
+				}			
+	}	
+}
 ISR(DMA_CH0_vect)
 {
 	//static signed BaseType_t test;
