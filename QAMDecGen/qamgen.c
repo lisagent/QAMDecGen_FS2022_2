@@ -25,6 +25,12 @@
 
 //void Interface(void *pvParameters);
 
+EventGroupHandle_t EventGroupQAMGen;
+#define LOCK_DATA	1 << 0
+#define DATA_READY	1 << 1
+#define LOCK_CLEARED 1 << 2
+
+
 #define MODE_IDLE		0x00
 #define MODE_SENDING	0x01
 
@@ -61,6 +67,14 @@ uint8_t sendbuffer[SENDBUFFER_SIZE] = {0,1,0,1,0,1,2,1,3,0,1,1,3,2,1,0,0,1,0,1};
 //Nur im Idle-Zustand gesendet werden. Wenn er grade im Sending-State ist dürfen keine Daten übertragen werden.
 
 void vQuamGen(void *pvParameters) {
+	
+	SemaphoreHandle_t MutexQAMGen; //A-Ressource
+	uint32_t sendbuffer[SENDBUFFER_SIZE_IDLE] = {0,3}; //P-Ressource
+	
+		MutexQAMGen = xSemaphoreCreateMutex(); //Muss wahrscheinlich alle mit ins Main
+		//EventGroupQAMGen = xEventGroupCreate();
+		//xEventGroupSetBits(EventGroupQAMGen, ALGO1);
+	
 	while(evDMAState == NULL) {
 		vTaskDelay(3/portTICK_RATE_MS);
 	}
@@ -69,6 +83,7 @@ void vQuamGen(void *pvParameters) {
 			updateButtons();
 			
 			if(getButtonPress(BUTTON1) == SHORT_PRESSED) {
+				xEventGroupSetBits(EventGroupQAMGen, Send_Data);
 			}
 			if(getButtonPress(BUTTON2) == SHORT_PRESSED) {
 			}
@@ -84,6 +99,15 @@ void vQuamGen(void *pvParameters) {
 			}
 			if(getButtonPress(BUTTON4) == LONG_PRESSED) {
 			}
+					sendbuffer[SENDBUFFER_SIZE_IDLE] = {0,3};
+					if((xEventGroupGetBits(EventGroupQAMGen) & LOCK_DATA) == LOCK_DATA) {
+						xEventGroupClearBits(EventGroupQAMGen, LOCK_DATA);
+						sendbuffer[SENDBUFFER_SIZE_IDLE] = 0;
+					}
+					if(xSemaphoreTake(MutexQAMGen, 10/portTICK_RATE_MS) == pdTRUE) {
+						sendbuffer[SENDBUFFER_SIZE_IDLE] = localx;
+						xSemaphoreGive(MutexQAMGen);
+					}
 			vTaskDelay(10/portTICK_RATE_MS);
 	}
 	//xTaskCreate(Interface, NULL, configMINIMAL_STACK_SIZE+500, NULL, 2, NULL);
@@ -119,10 +143,20 @@ void fillBuffer(uint16_t buffer[NR_OF_SAMPLES]) {
 	for(;;){
 		switch(mode)
 			case MODE_IDLE:
+				if(xSemaphoreTake(MutexQAMGen, 10/portTICK_RATE_MS) == pdFALSE) {
 				uint8_t sendbuffer[SENDBUFFER_SIZE_IDLE] = {0,3};
 			break;
+			
 			case MODE_SENDING
-				uint8_t sendbuffer[SENDBUFFER_SIZE_IDLE] = {alle Daten zusammen};
+			 	if(xSemaphoreTake(MutexQAMGen, 10/portTICK_RATE_MS) == pdTRUE) {
+						uint8_t Send_Start = {1,2};
+						uint8_t SendID = noch definieren
+						uint8_t SendLenght = {0,0,2,3};
+						uint8_t SendData = {1,1,0,1, 1,3,1,1, 1,2,0,1, 1,2,3,1, 0,2,0,0, 1,1,0,0, 1,2,3,0, 1,3,1,1, 1,2,3,2, 1,2,1,0, 1,2,1,1, 1,3,0,2};	
+						uint8_t SendChecksumme = Alle Daten zusammen
+						uint8_t sendbuffer[SENDBUFFER_SIZE_IDLE] = {1,2,ID,0,0,2,3, 1,1,0,1, 1,3,1,1, 1,2,0,1, 1,2,3,1, 0,2,0,0, 1,1,0,0, 1,2,3,0, 1,3,1,1, 1,2,3,2, 1,2,1,0, 1,2,1,1, 1,3,0,2, Checksumme};
+					xSemaphoreGive(MutexQAMGen);
+					}
 			break;
 			}	
 }
