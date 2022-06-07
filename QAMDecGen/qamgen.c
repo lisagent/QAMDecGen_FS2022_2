@@ -27,7 +27,7 @@
 
 EventGroupHandle_t EventGroupQAMGen;
 #define LOCK_DATA	1 << 0
-#define DATA_READY	1 << 1
+#define SEND_DATA_READY	1 << 1
 #define LOCK_CLEARED 1 << 2
 #define CREATE_SENDDATA 1 << 3
 
@@ -55,122 +55,129 @@ const int16_t sinLookup50[NR_OF_SAMPLES*2] = {0x0,0xC8,0x187,0x238,0x2D3,0x353,0
 												0xFC01,0xFC15,0xFC4F,0xFCAD,0xFD2D,0xFDC8,0xFE79,0xFF38,};
 
 #define SENDBUFFER_SIZE_IDLE		 2
-#define SENDBUFFER_SIZE_SENDING		 42
+uint8_t sendbuffer_size_sending = 0;
 
 SemaphoreHandle_t MutexQAMGen; //A-Ressource
 uint8_t sendbuffer_IDLE[SENDBUFFER_SIZE_IDLE] = {0,3}; //P-Ressource
-//uint8_t sendbuffer_SENDING[SENDBUFFER_SIZE_SENDING] = {0,1,0,1,0,1,2,1,3,0,1,1,3,2,1,0,0,1,0,1};
+uint8_t sendbuffer_SENDING[100];
+uint8_t SendID;
+uint8_t checksum;
 
 void vQuamGen(void *pvParameters) {	
-	MutexQAMGen = xSemaphoreCreateMutex(); 
+	EventGroupQAMGen = xEventGroupCreate();
 	while(evDMAState == NULL) {
 		vTaskDelay(3/portTICK_RATE_MS);
 	}
 	xEventGroupWaitBits(evDMAState, DMAGENREADY, false, true, portMAX_DELAY);
 	initButtons();
 	for(;;) {
-			updateButtons();
-			
-			if(getButtonPress(BUTTON1) == SHORT_PRESSED) {
-				xEventGroupSetBits(EventGroupQAMGen, CREATE_SENDDATA);
-			}
-			vTaskDelay(10/portTICK_RATE_MS);
+		updateButtons();
+		
+		if(getButtonPress(BUTTON1) == SHORT_PRESSED) {
+			Create_Send_Data();
+			xEventGroupSetBits(EventGroupQAMGen, SEND_DATA_READY);
+		}
+		vTaskDelay(10/portTICK_RATE_MS);
+	}
 }
+
 
 void fillBuffer(uint16_t buffer[NR_OF_SAMPLES]) {
 	static int pSendbuffer_IDLE = 0;
 	static int pSendbuffer_SENDING = 0;
-		int mode = MODE_IDLE;
-			switch(){
-				case MODE_IDLE:
-					for(int i = 0; i < NR_OF_SAMPLES;i++) {
-						switch(sendbuffer_IDLE[pSendbuffer_IDLE]) {
-							case 0:
-								buffer[i] = 0x800 + (sinLookup100[i]);
-							break;
-							case 1:
-								buffer[i] = 0x800 + (sinLookup100[i+16]);
-							break;
-							case 2:
-								buffer[i] = 0x800 + (sinLookup50[i]);
-							break;
-							case 3:
-								buffer[i] = 0x800 + (sinLookup50[i+16]);
-							break;
-						}
-					}
-					if(pSendbuffer_IDLE < SENDBUFFER_SIZE_IDLE-1) {
-						pSendbuffer_IDLE++;
-					} else {
-						pSendbuffer_IDLE = 0;
-				}	
-				break;
-				
-				case MODE_SENDING:	
-					for(int i = 0; i < NR_OF_SAMPLES;i++) {
-						switch(sendbuffer_SENDING[pSendbuffer_SENDING]) {
-							case 0:
-								buffer[i] = 0x800 + (sinLookup100[i]);
-							break;
-							case 1:
-								buffer[i] = 0x800 + (sinLookup100[i+16]);
-							break;
-							case 2:
-								buffer[i] = 0x800 + (sinLookup50[i]);
-							break;
-							case 3:
-								buffer[i] = 0x800 + (sinLookup50[i+16]);
-							break;
-						}
-					}
-					if(pSendbuffer_SENDING < SENDBUFFER_SIZE_SENDING-1) {
-							pSendbuffer_SENDING++;
-						} else {
-							pSendbuffer_SENDING = 0;
-					}
+	static int Switch_State = MODE_IDLE;
+	switch(Switch_State){
+		case MODE_IDLE:{
+			for(int i = 0; i < NR_OF_SAMPLES;i++) {
+				switch(sendbuffer_IDLE[pSendbuffer_IDLE]) {
+					case 0:
+						buffer[i] = 0x800 + (sinLookup100[i]);
 					break;
-		}
-}
-uint8_t sendbuffer_SENDING[100]
-uint8_t SendID[100]
-uint8_t checksum[20]
-void Create_Send_Data(){	
-		if((xEventGroupGetBits(EventGroupQAMGen)&StartTask)){		
-			case MODE_SENDING;
-				if(xSemaphoreTake(MutexQAMGen, 10/portTICK_RATE_MS) == pdTRUE) {
-					SendID++;
-					char senddata[10] = "HelloWorld";
-					uint8_t datalen = strlen(senddata);
-					//Start-Signal
-					sendbuffer_SENDING[0] =1;
-					sendbuffer_SENDING[1] =2;
-					//ID
-					sendbuffer_SENDING[2] =SendID & 0x03;
-					sendbuffer_SENDING[3] =(SendID >> 2 ) & 0x03;
-					//Lenght
-					sendbuffer_SENDING[4] =(senddata >> 0 ) & 0x03;
-					sendbuffer_SENDING[5] =(senddata >> 2 ) & 0x03;
-					sendbuffer_SENDING[6] =(senddata >> 4 ) & 0x03;
-					sendbuffer_SENDING[7] =(senddata >> 6 ) & 0x03;
-					//Daten
-					for (int i = 0; i<datalen; i++){
-						sendbuffer_SENDING[8+i*4+0] = (senddata[i] >>0) & 0x03;
-						sendbuffer_SENDING[8+i*4+1] = (senddata[i] >>2) & 0x03;
-						sendbuffer_SENDING[8+i*4+2] = (senddata[i] >>3) & 0x03;
-						sendbuffer_SENDING[8+i*4+3] = (senddata[i] >>4) & 0x03;
-					}
-					//Checksumme
-					for(int i = 0; i<7+(datalen*4); i++) {
-						checksum += sendbuffer_SENDING[i];
-					}
-					sendbuffer_SENDING[(i<7+(datalen*4))+0] = checksum >> 0 &0x03;
-					sendbuffer_SENDING[(i<7+(datalen*4))+1] = checksum >> 2 &0x03;
-					sendbuffer_SENDING[(i<7+(datalen*4))+2] = checksum >> 4 &0x03;
-					sendbuffer_SENDING[(i<7+(datalen*4))+3] = checksum >> 6 &0x03;
-					xSemaphoreGive(MutexQAMGen);
+					case 1:
+						buffer[i] = 0x800 + (sinLookup100[i+16]);
+					break;
+					case 2:
+						buffer[i] = 0x800 + (sinLookup50[i]);
+					break;
+					case 3:
+						buffer[i] = 0x800 + (sinLookup50[i+16]);
+					break;
 				}
+			}
+			if(pSendbuffer_IDLE < SENDBUFFER_SIZE_IDLE-1) {
+				pSendbuffer_IDLE++;
+			} else {
+				pSendbuffer_IDLE = 0;
+				uint32_t Bits = xEventGroupGetBitsFromISR(EventGroupQAMGen );
+				if((Bits & SEND_DATA_READY) == SEND_DATA_READY){
+					Switch_State = MODE_SENDING;
+				}
+			}	
 			break;
 		}
+				
+		case MODE_SENDING:	{
+			for(int i = 0; i < NR_OF_SAMPLES;i++) {
+				switch(sendbuffer_SENDING[pSendbuffer_SENDING]) {
+					case 0:
+						buffer[i] = 0x800 + (sinLookup100[i]);
+					break;
+					case 1:
+						buffer[i] = 0x800 + (sinLookup100[i+16]);
+					break;
+					case 2:
+						buffer[i] = 0x800 + (sinLookup50[i]);
+					break;
+					case 3:
+						buffer[i] = 0x800 + (sinLookup50[i+16]);
+					break;
+				}
+			}
+			if(pSendbuffer_SENDING < sendbuffer_size_sending-1) {
+				pSendbuffer_SENDING++;
+			} else {
+				pSendbuffer_SENDING = 0;
+				Switch_State = MODE_IDLE;
+				xEventGroupClearBitsFromISR(EventGroupQAMGen,SEND_DATA_READY);
+				sendbuffer_size_sending = 0;
+			}				
+			break;
+		}
+	}
+}
+
+void Create_Send_Data(){		
+	SendID++;
+	char senddata[11] = "HelloWorld\0";
+	uint8_t datalen = strlen(senddata);
+	sendbuffer_size_sending = 12 + (datalen*4);
+	//Start-Signal
+	sendbuffer_SENDING[0] =1;
+	sendbuffer_SENDING[1] =2;
+	//ID
+	sendbuffer_SENDING[2] =SendID & 0x03;
+	sendbuffer_SENDING[3] =(SendID >> 2 ) & 0x03;
+	//Lenght
+	sendbuffer_SENDING[4] =(datalen >> 0 ) & 0x03;
+	sendbuffer_SENDING[5] =(datalen >> 2 ) & 0x03;
+	sendbuffer_SENDING[6] =(datalen >> 4 ) & 0x03;
+	sendbuffer_SENDING[7] =(datalen >> 6 ) & 0x03;
+	//Daten
+	for (int i = 0; i<datalen; i++){
+		sendbuffer_SENDING[8+i*4+0] = (senddata[i] >>0) & 0x03;
+		sendbuffer_SENDING[8+i*4+1] = (senddata[i] >>2) & 0x03;
+		sendbuffer_SENDING[8+i*4+2] = (senddata[i] >>4) & 0x03;
+		sendbuffer_SENDING[8+i*4+3] = (senddata[i] >>6) & 0x03;
+	}
+	//Checksumme
+	for(int i = 0; i<8+(datalen*4); i++) {
+		checksum += sendbuffer_SENDING[i];
+	}
+	sendbuffer_SENDING[(8+(datalen*4))+0] = (checksum >> 0) & 0x03;
+	sendbuffer_SENDING[(8+(datalen*4))+1] = (checksum >> 2) & 0x03;
+	sendbuffer_SENDING[(8+(datalen*4))+2] = (checksum >> 4) & 0x03;
+	sendbuffer_SENDING[(8+(datalen*4))+3] = (checksum >> 6) & 0x03;
+}
 
 ISR(DMA_CH0_vect)
 {
