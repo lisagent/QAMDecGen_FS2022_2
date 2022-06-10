@@ -26,9 +26,9 @@
 
 
 EventGroupHandle_t EventGroupQAMGen;
-#define LOCK_DATA	1 << 0
+#define LOCK_DATA		1 << 0
 #define SEND_DATA_READY	1 << 1
-#define LOCK_CLEARED 1 << 2
+#define LOCK_CLEARED	1 << 2
 #define CREATE_SENDDATA 1 << 3
 
 
@@ -54,7 +54,7 @@ const int16_t sinLookup50[NR_OF_SAMPLES*2] = {0x0,0xC8,0x187,0x238,0x2D3,0x353,0
 												0x0,0xFF38,0xFE79,0xFDC8,0xFD2D,0xFCAD,0xFC4F,0xFC15,
 												0xFC01,0xFC15,0xFC4F,0xFCAD,0xFD2D,0xFDC8,0xFE79,0xFF38,};
 
-#define SENDBUFFER_SIZE_IDLE		 2
+#define SENDBUFFER_SIZE_IDLE	 2
 uint8_t sendbuffer_size_sending = 0;
 
 SemaphoreHandle_t MutexQAMGen; //A-Ressource
@@ -91,28 +91,28 @@ void fillBuffer(uint16_t buffer[NR_OF_SAMPLES]) {
 			for(int i = 0; i < NR_OF_SAMPLES;i++) {
 				switch(sendbuffer_IDLE[pSendbuffer_IDLE]) {
 					case 0:
-						buffer[i] = 0x800 + (sinLookup100[i]);
+					buffer[i] = 0x800 + (sinLookup100[i]);
 					break;
 					case 1:
-						buffer[i] = 0x800 + (sinLookup100[i+16]);
+					buffer[i] = 0x800 + (sinLookup100[i+16]);
 					break;
 					case 2:
-						buffer[i] = 0x800 + (sinLookup50[i]);
+					buffer[i] = 0x800 + (sinLookup50[i]);
 					break;
 					case 3:
-						buffer[i] = 0x800 + (sinLookup50[i+16]);
+					buffer[i] = 0x800 + (sinLookup50[i+16]);
 					break;
 				}
 			}
 			if(pSendbuffer_IDLE < SENDBUFFER_SIZE_IDLE-1) {
 				pSendbuffer_IDLE++;
-			} else {
+				} else {
 				pSendbuffer_IDLE = 0;
 				uint32_t Bits = xEventGroupGetBitsFromISR(EventGroupQAMGen );
 				if((Bits & SEND_DATA_READY) == SEND_DATA_READY){
 					Switch_State = MODE_SENDING;
 				}
-			}	
+			}
 			break;
 		}
 				
@@ -135,7 +135,7 @@ void fillBuffer(uint16_t buffer[NR_OF_SAMPLES]) {
 			}
 			if(pSendbuffer_SENDING < sendbuffer_size_sending-1) {
 				pSendbuffer_SENDING++;
-			} else {
+			}else {
 				pSendbuffer_SENDING = 0;
 				Switch_State = MODE_IDLE;
 				xEventGroupClearBitsFromISR(EventGroupQAMGen,SEND_DATA_READY);
