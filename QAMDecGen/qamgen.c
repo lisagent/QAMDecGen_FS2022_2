@@ -1,8 +1,11 @@
 /*
 * qamgen.c
 *
-* Created: 05.05.2020 16:24:59
+*  Created: 05.05.2020 16:24:59
 *  Author: Chaos
+*  überarbeitet am: 24.06.2022 13:50
+*  überarbeitet von: Lisa-Marie Gent
+*  Embeddey Systems bey Martin Bürger
 */ 
 #include "avr_compiler.h"
 #include "pmic_driver.h"
@@ -57,8 +60,8 @@ const int16_t sinLookup50[NR_OF_SAMPLES*2] = {0x0,0xC8,0x187,0x238,0x2D3,0x353,0
 #define SENDBUFFER_SIZE_IDLE	 2
 uint8_t sendbuffer_size_sending = 0;
 
-SemaphoreHandle_t MutexQAMGen; //A-Ressource
-uint8_t sendbuffer_IDLE[SENDBUFFER_SIZE_IDLE] = {0,3}; //P-Ressource
+SemaphoreHandle_t MutexQAMGen; 
+uint8_t sendbuffer_IDLE[SENDBUFFER_SIZE_IDLE] = {0,3};
 uint8_t sendbuffer_SENDING[100];
 uint8_t SendID;
 uint8_t checksum;
